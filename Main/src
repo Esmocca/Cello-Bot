@@ -19,12 +19,13 @@ MPU9250_WE imu(MPUADDR);
 #define IDLETIME 60000
 
 #define STABLE_DELTA_THRESHOLD   1.0     // derajat
-#define UNSTABLE_TIME_THRESHOLD  300     // ms
-
+#define UNSTABLE_TIME_THRESHOLD  400     // ms
+#define LDR_DARK_THRESHOLD 10   // makin kecil = makin gelap
 enum RobotState {
   STATE_IDLE,
   STATE_ANGRY,
-  STATE_TIRED
+  STATE_TIRED,
+  STATE_HAPPY
 };
 
 RobotState currentState = STATE_IDLE;
@@ -32,6 +33,7 @@ RobotState currentState = STATE_IDLE;
 Adafruit_SSD1306 display(SCREENWIDTH, SCREENHEIGHT, &Wire, OLEDRESET);
 RoboEyes<Adafruit_SSD1306> roboEyes(display); 
 
+const int ldrPin = A0;
 
 float roll = 0.0;
 float pitch = 0.0;
@@ -52,6 +54,7 @@ unsigned long nowMillis;
 void setup() {
   Serial.begin(115200);
   Wire.begin();
+  pinMode(ldrPin, INPUT);
 
   // OLED init
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -138,6 +141,11 @@ void updateState() {
     return;
   }
 
+  if (isPatDetected()) {
+    currentState = STATE_HAPPY;
+    return;
+  }
+
   // STABIL
   if (nowMillis - lastMotionTime > IDLETIME)
     currentState = STATE_TIRED;
@@ -166,7 +174,17 @@ void updateEyes() {
     case STATE_TIRED:
       roboEyes.setMood(TIRED);
       break;
+
+    case STATE_HAPPY:
+      roboEyes.setMood(HAPPY);
+      roboEyes.anim_laugh();
+      break;
   }
+}
+
+bool isPatDetected() {
+  float ldr = analogRead(ldrPin);
+  return (ldr < LDR_DARK_THRESHOLD);
 }
 
 
