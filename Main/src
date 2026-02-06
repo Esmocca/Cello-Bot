@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <FluxGarage_RoboEyes.h>
 #include <MPU9250_WE.h>
 
 // IMU SENSOR
@@ -13,6 +14,8 @@ MPU9250_WE imu(MPUADDR);
 #define OLEDRESET -1
 
 Adafruit_SSD1306 display(SCREENWIDTH, SCREENHEIGHT, &Wire, OLEDRESET);
+RoboEyes<Adafruit_SSD1306> roboEyes(display); 
+roboEyes roboEyes;
 
 float roll = 0.0;
 float pitch = 0.0;
@@ -34,6 +37,11 @@ void setup() {
   Wire.write(0x6B);     
   Wire.write(0x00);
   Wire.endTransmission();
+
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+  }
 
   prevTime = micros();
 }
@@ -65,6 +73,39 @@ void IMU() {
   
 }
 
-void OLED(){
-  
+void RoboEyes(){
+  roboEyes.begin(SCREEN_WIDTH, SCREEN_HEIGHT, 100);
+
+  roboEyes.setAutoblinker(ON, 3, 2);
+  roboEyes.setIdleMode(ON, 2, 2);
+
+  // Define eye shapes, all values in pixels
+  roboEyes.setWidth(36, 36); // byte leftEye, byte rightEye
+  roboEyes.setHeight(36, 36); // byte leftEye, byte rightEye
+  roboEyes.setBorderradius(8, 8); // byte leftEye, byte rightEye
+  roboEyes.setSpacebetween(10); // int space -> can also be negative
+
+  // Cyclops mode
+  roboEyes.setCyclops(ON); // bool on/off -> if turned on, robot has only on eye
+
+  // Define mood, curiosity and position
+  roboEyes.setMood(DEFAULT); // mood expressions, can be TIRED, ANGRY, HAPPY, DEFAULT
+  roboEyes.setPosition(DEFAULT); // cardinal directions, can be N, NE, E, SE, S, SW, W, NW, DEFAULT (default = horizontally and vertically centered)
+  roboEyes.setCuriosity(ON); // bool on/off -> when turned on, height of the outer eyes increases when moving to the very left or very right
+
+  // Set horizontal or vertical flickering
+  roboEyes.setHFlicker(ON, 2); // bool on/off, byte amplitude -> horizontal flicker: alternately displacing the eyes in the defined amplitude in pixels
+  roboEyes.setVFlicker(ON, 2); // bool on/off, byte amplitude -> vertical flicker: alternately displacing the eyes in the defined amplitude in pixels
+
+  // Play prebuilt oneshot animations
+  roboEyes.anim_confused(); // confused - eyes shaking left and right
+  roboEyes.anim_laugh(); // laughing - eyes shaking up and down
+
+}
+
+void loop(){
+  RoboEyes();
+  IMU();
+  roboEyes.update();
+
 }
