@@ -14,8 +14,12 @@ MPU9250_WE imu(MPUADDR);
 #define OLEDRESET -1
 
 #define PITCH_THRESHOLD 20.0   // derajat
-#define YAW_RATE_THRESHOLD 120.0 // deg/s
+#define YAW_RATE_THRESHOLD 80.0 // deg/s
+
 #define IDLETIME 60000
+
+#define STABLE_DELTA_THRESHOLD   1.0     // derajat
+#define UNSTABLE_TIME_THRESHOLD  300     // ms
 
 enum RobotState {
   STATE_IDLE,
@@ -34,10 +38,15 @@ float pitch = 0.0;
 float rollAcc;
 float pitchAcc;
 
+float lastRoll = 0.0;
+float lastPitch = 0.0;
+unsigned long unstableStartTime = 0;
+
 unsigned long prevTime;
 float dt;
 
 unsigned long lastMotionTime;
+unsigned long motionStartTime = 0;
 unsigned long nowMillis;
 
 void setup() {
@@ -92,28 +101,50 @@ void ReadIMU() {
   roll  = 0.98 * roll  + 0.02 * rollAcc;
   pitch = 0.98 * pitch + 0.02 * pitchAcc;
 
-  
 }
 
-void updateState(float gyroZ) {
-  nowMillis = millis();
+bool isOrientationStable() {
+  float dRoll  = abs(roll - lastRoll);
+  float dPitch = abs(pitch - lastPitch);
 
-  bool strongMotion =
-    abs(pitch) > PITCH_THRESHOLD ||
-    abs(gyroZ) > YAW_RATE_THRESHOLD;
+  lastRoll  = roll;
+  lastPitch = pitch;
 
-  if (strongMotion) {
+  // perubahan kecil → stabil
+  if (dRoll < STABLE_DELTA_THRESHOLD && dPitch < STABLE_DELTA_THRESHOLD) {
+    unstableStartTime = 0;
+    return true;
+  }
+
+  // perubahan besar → mulai hitung
+  if (unstableStartTime == 0)
+    unstableStartTime = millis();
+
+  // jika terus berubah cukup lama → tidak stabil
+  if (millis() - unstableStartTime > UNSTABLE_TIME_THRESHOLD)
+    return false;
+
+  return true;
+}
+
+void updateState() {
+  unsigned long nowMillis = millis();
+  bool stable = isOrientationStable();
+
+  // TIDAK STABIL → ANGRY
+  if (!stable) {
     currentState = STATE_ANGRY;
     lastMotionTime = nowMillis;
+    return;
   }
-  else {
-    if (nowMillis - lastMotionTime > IDLETIME) {
-      currentState = TIRED;
-    } else {
-      currentState = STATE_IDLE;
-    }
-  }
+
+  // STABIL
+  if (nowMillis - lastMotionTime > IDLETIME)
+    currentState = STATE_TIRED;
+  else
+    currentState = STATE_IDLE;
 }
+
 
 void updateEyes() {
   static RobotState lastState = STATE_IDLE;
@@ -171,8 +202,15 @@ void OLED(){
 
 void loop(){
   ReadIMU();
-  updateState(imu.getGyrRawValues().z / 131.0);
+  updateState();
   updateEyes();
   roboEyes.update();
+
+  Serial.print("Roll: ");
+  Serial.print(roll, 2);
+  Serial.print(" | Pitch: ");
+  Serial.println(pitch, 2);
+
+  delay(10);
 
 }
