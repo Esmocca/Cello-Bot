@@ -1,0 +1,70 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <MPU9250_WE.h>
+
+// IMU SENSOR
+#define MPUADDR 0x68
+MPU9250_WE imu(MPUADDR);
+
+// OLED
+#define SCREENWIDTH 128
+#define SCREENHEIGHT 64
+#define OLEDRESET -1
+
+Adafruit_SSD1306 display(SCREENWIDTH, SCREENHEIGHT, &Wire, OLEDRESET);
+
+float roll = 0.0;
+float pitch = 0.0;
+float rollAcc;
+float pitchAcc;
+
+unsigned long prevTime;
+float dt;
+
+void setup() {
+  Serial.begin(9600);
+  Wire.begin();
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+
+  Wire.beginTransmission(MPUADDR);
+  Wire.write(0x6B);     
+  Wire.write(0x00);
+  Wire.endTransmission();
+
+  prevTime = micros();
+}
+
+void IMU() {
+  xyzFloat acc = imu.getAccRawValues();
+  xyzFloat gyr = imu.getGyrRawValues();
+
+  float accX = acc.x / 16384.0;
+  float accY = acc.y / 16384.0;
+  float accZ = acc.z / 16384.0;
+
+  float gyroX = gyr.x / 131.0;
+  float gyroY = gyr.y / 131.0;
+
+  rollAcc  = atan2(accY, accZ) * 57.2958;
+  pitchAcc = atan2(-accX, sqrt(accY * accY + accZ * accZ)) * 57.2958;
+
+  unsigned long now = micros();
+  dt = (now - prevTime) * 1e-6;
+  prevTime = now;
+
+  roll  += gyroX * dt;
+  pitch += gyroY * dt;
+
+  roll  = 0.98 * roll  + 0.02 * rollAcc;
+  pitch = 0.98 * pitch + 0.02 * pitchAcc;
+
+  
+}
+
+void OLED(){
+  
+}
