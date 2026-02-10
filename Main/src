@@ -20,7 +20,7 @@ MPU9250_WE imu(MPUADDR);
 
 #define STABLE_DELTA_THRESHOLD   1.0     // derajat
 #define UNSTABLE_TIME_THRESHOLD  400     // ms
-#define LDR_DARK_THRESHOLD 10   // makin kecil = makin gelap
+#define LDR_DARK_THRESHOLD 1   // makin kecil = makin gelap
 enum RobotState {
   STATE_IDLE,
   STATE_ANGRY,
